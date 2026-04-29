@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1092110353855",
+    "firebase_url": "https://quad-connect-58e7a-default-rtdb.firebaseio.com",
+    "project_id": "quad-connect-58e7a",
+    "storage_bucket": "quad-connect-58e7a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1092110353855:android:0a52085be6441e07f80d0a",
+        "android_client_info": {
+          "package_name": "com.example.quad_connect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHDx0eyoyPaSZzWFF9xFwrpthbpuh7ycs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
