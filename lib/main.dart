@@ -6,6 +6,8 @@ void main() {
 }
 
 class QuadConnectApp extends StatelessWidget {
+  const QuadConnectApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(home: LoginScreen());

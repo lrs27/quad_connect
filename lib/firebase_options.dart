@@ -2,7 +2,7 @@
 // ignore_for_file: type=lint
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+    show defaultTargetPlatform, TargetPlatform;
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -16,14 +16,9 @@ import 'package:flutter/foundation.dart'
 /// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
-    if (kIsWeb) {
-      return web;
-    }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
-      case TargetPlatform.ios:
-        return ios;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -35,23 +30,6 @@ class DefaultFirebaseOptions {
         );
     }
   }
-
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBjK_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z',
-    appId: '1:1092110353855:web:1234567890abcdef',
-    messagingSenderId: '1092110353855',
-    projectId: 'quad-connect-58e7a',
-    storageBucket: 'quad-connect-58e7a.firebasestorage.app',
-  );
-
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBjK_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z_Z',
-    appId: '1:1092110353855:ios:1234567890abcdef',
-    messagingSenderId: '1092110353855',
-    projectId: 'quad-connect-58e7a',
-    databaseURL: 'https://quad-connect-58e7a-default-rtdb.firebaseio.com',
-    storageBucket: 'quad-connect-58e7a.firebasestorage.app',
-  );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBHDx0eyoyPaSZzWFF9xFwrpthbpuh7ycs',
