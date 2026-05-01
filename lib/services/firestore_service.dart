@@ -24,6 +24,8 @@ class FirestoreService {
     await _db.collection('posts').add({
       ...post,
       'timestamp': FieldValue.serverTimestamp(),
+      'likesCount': 0,
+      'commentsCount': 0,
     });
   }
 
@@ -32,7 +34,46 @@ class FirestoreService {
         .collection('posts')
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => d.data()).toList());
+        .map((snap) {
+          return snap.docs.map((d) {
+            final data = d.data();
+            data['postId'] = d.id;
+            return data;
+          }).toList();
+        });
+  }
+
+  Future<void> updatePost(String postId, Map<String, dynamic> data) async {
+    await _db.collection('posts').doc(postId).update(data);
+  }
+
+  Future<void> deletePost(String postId) async {
+    await _db.collection('posts').doc(postId).delete();
+  }
+
+  // LIKE / UNLIKE
+  Future<void> likePost(String postId, String uid) async {
+    final likeRef = _db
+        .collection('posts')
+        .doc(postId)
+        .collection('likes')
+        .doc(uid);
+
+    final doc = await likeRef.get();
+
+    if (doc.exists) {
+      // Unlike
+      await likeRef.delete();
+      await _db.collection('posts').doc(postId).update({
+        'likesCount': FieldValue.increment(-1),
+      });
+    } else {
+      // Like
+      await likeRef.set({'uid': uid});
+      await _db.collection('posts').doc(postId).update({
+        'likesCount': FieldValue.increment(1),
+      });
+    }
   }
 
   // ------------------------------------------------------------
@@ -45,7 +86,6 @@ class FirestoreService {
   ) async {
     final convoRef = _db.collection('conversations');
 
-    // Check if conversation already exists
     final existing = await convoRef.where('userIds', arrayContains: uid).get();
 
     for (var doc in existing.docs) {
@@ -55,7 +95,6 @@ class FirestoreService {
       }
     }
 
-    // Create new conversation
     final newConvo = await convoRef.add({
       'userIds': [uid, otherUid],
       'participants': {uid: myName, otherUid: otherName},
@@ -75,7 +114,6 @@ class FirestoreService {
         .map((snap) {
           return snap.docs.map((doc) {
             final data = doc.data();
-
             final participants = data['participants'] ?? {};
             final otherUid = participants.keys.firstWhere(
               (id) => id != uid,
@@ -133,7 +171,6 @@ class FirestoreService {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // Save eventId inside the document for easy access
     await docRef.update({'eventId': docRef.id});
   }
 
