@@ -6,8 +6,11 @@ class StorageService {
 
   Future<String> uploadImage(File file, String path) async {
     final ref = _storage.ref().child(path);
-    await ref.putFile(file);
+
+    final metadata = SettableMetadata(contentType: "image/png");
+
+    await ref.putFile(file, metadata);
+
     return await ref.getDownloadURL();
   }
 }
-https://console.firebase.google.com/project/quad-connect-58e7a/appcheck/products
