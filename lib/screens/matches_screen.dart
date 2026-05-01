@@ -60,11 +60,26 @@ class MatchesScreen extends StatelessWidget {
                   title: Text(u.name),
                   subtitle: Text("${u.major} • ${u.year}"),
                   trailing: Text("$score%"),
-                  onTap: () {
+                  onTap: () async {
+                    final current = await AuthService().authStateChanges.first;
+                    final me = matches[i]['me'] as UserModel;
+
+                    final convoId = await FirestoreService()
+                        .createOrGetConversation(current!.uid, u.uid);
+
+                    await FirestoreService().setConversationNames(convoId, {
+                      current.uid: me.name,
+                      u.uid: u.name,
+                    });
+
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ChatScreen(name: u.name, uid: u.uid),
+                        builder: (_) => ChatScreen(
+                          name: u.name,
+                          uid: u.uid,
+                          convoId: convoId,
+                        ),
                       ),
                     );
                   },

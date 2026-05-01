@@ -18,6 +18,11 @@ class FirestoreService {
     return UserModel.fromDoc(doc);
   }
 
+  Future<List<UserModel>> getAll() async {
+    final snap = await _db.collection('users').get();
+    return snap.docs.map((doc) => UserModel.fromDoc(doc)).toList();
+  }
+
   // POSTS
   Future<void> createPost(PostModel post) async {
     await _db.collection('posts').doc(post.postId).set(post.toMap());
