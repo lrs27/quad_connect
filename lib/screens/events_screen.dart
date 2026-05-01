@@ -11,7 +11,7 @@ class EventsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text("Upcoming Events")),
       body: StreamBuilder<List<EventModel>>(
-        stream: FirestoreService().getEvents(),
+        stream: FirestoreService().getPublicEvents(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());

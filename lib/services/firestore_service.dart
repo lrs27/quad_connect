@@ -31,7 +31,7 @@ class FirestoreService {
         .map((snap) => snap.docs.map((doc) => PostModel.fromDoc(doc)).toList());
   }
 
-  // 🔥 CONVERSATIONS
+  // CONVERSATIONS
   Future<String> createOrGetConversation(String uid1, String uid2) async {
     final query = await _db
         .collection('conversations')
@@ -129,6 +129,19 @@ class FirestoreService {
 
   Future<void> deleteEvent(String eventId) async {
     await _db.collection('events').doc(eventId).delete();
+  }
+
+  Future<void> rsvpEvent(String eventId, String uid, String status) async {
+    await _db
+        .collection('events')
+        .doc(eventId)
+        .collection('rsvps')
+        .doc(uid)
+        .set({
+          'uid': uid,
+          'status': status,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
   }
 
   Stream<List<EventModel>> getPublicEvents() {
