@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
-import 'profile_screen.dart';
+import 'home_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -30,8 +30,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Future<void> _finishSetup() async {
-    final user = AuthService().authStateChanges.first;
-
     setState(() {
       _loading = true;
       _error = null;
@@ -59,7 +57,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             .split(',')
             .map((e) => e.trim())
             .toList(),
-        availability: [], // You can add availability UI later
+        availability: [],
         profilePhotoUrl: "",
         fcmToken: "",
       );
@@ -69,7 +67,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       }
     } catch (e) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:quad_connect/screens/home_screen.dart';
 import '../services/auth_service.dart';
-import 'feed_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user != null && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const FeedScreen()),
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       }
     } catch (e) {

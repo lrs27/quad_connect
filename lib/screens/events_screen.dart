@@ -8,60 +8,73 @@ class EventsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Upcoming Events")),
-      body: StreamBuilder<List<EventModel>>(
-        stream: FirestoreService().getPublicEvents(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return StreamBuilder<List<EventModel>>(
+      stream: FirestoreService().getPublicEvents(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          final events = snapshot.data!;
+        final events = snapshot.data!;
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: events.length,
-            itemBuilder: (context, i) {
-              final e = events[i];
+        return Column(
+          children: [
+            // Top bar (replaces AppBar)
+            Container(
+              padding: const EdgeInsets.all(16),
+              alignment: Alignment.centerLeft,
+              child: const Text(
+                "Upcoming Events",
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ),
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        e.title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: events.length,
+                itemBuilder: (context, i) {
+                  final e = events[i];
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            e.title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(e.date.toDate().toString()),
+                          Text(e.location),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final user =
+                                  await AuthService().authStateChanges.first;
+                              await FirestoreService().rsvpEvent(
+                                e.eventId,
+                                user!.uid,
+                                "going",
+                              );
+                            },
+                            child: const Text("RSVP"),
+                          ),
+                        ],
                       ),
-                      Text(e.date.toDate().toString()),
-                      Text(e.location),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: () async {
-                          final user =
-                              await AuthService().authStateChanges.first;
-                          await FirestoreService().rsvpEvent(
-                            e.eventId,
-                            user!.uid,
-                            "going",
-                          );
-                        },
-                        child: const Text("RSVP"),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

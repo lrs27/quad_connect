@@ -10,7 +10,12 @@ class MatchesScreen extends StatelessWidget {
 
   Future<List<Map<String, dynamic>>> loadMatches() async {
     final current = await AuthService().authStateChanges.first;
+
+    // Load current user's profile (nullable)
     final me = await FirestoreService().getUser(current!.uid);
+
+    // If profile doesn't exist, return empty list
+    if (me == null) return [];
 
     final allUsers = await FirestoreService().getAll();
     final matcher = MatchingService();
@@ -18,6 +23,7 @@ class MatchesScreen extends StatelessWidget {
     final matches = <Map<String, dynamic>>[];
 
     for (final u in allUsers) {
+      // Skip yourself
       if (u.uid == me.uid) continue;
 
       final score = matcher.calculateScore(
@@ -36,59 +42,59 @@ class MatchesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Your Matches")),
-      body: FutureBuilder(
-        future: loadMatches(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return FutureBuilder(
+      future: loadMatches(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          final matches = snapshot.data as List<Map<String, dynamic>>;
+        final matches = snapshot.data as List<Map<String, dynamic>>;
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: matches.length,
-            itemBuilder: (context, i) {
-              final u = matches[i]['user'] as UserModel;
-              final score = matches[i]['score'];
+        if (matches.isEmpty) {
+          return const Center(child: Text("No matches available yet."));
+        }
 
-              return Card(
-                child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.person)),
-                  title: Text(u.name),
-                  subtitle: Text("${u.major} • ${u.year}"),
-                  trailing: Text("$score%"),
-                  onTap: () async {
-                    final current = await AuthService().authStateChanges.first;
-                    final me = matches[i]['me'] as UserModel;
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: matches.length,
+          itemBuilder: (context, i) {
+            final u = matches[i]['user'] as UserModel;
+            final score = matches[i]['score'];
 
-                    final convoId = await FirestoreService()
-                        .createOrGetConversation(current!.uid, u.uid);
+            return Card(
+              child: ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                title: Text(u.name),
+                subtitle: Text("${u.major} • ${u.year}"),
+                trailing: Text("$score%"),
+                onTap: () async {
+                  final current = await AuthService().authStateChanges.first;
 
-                    await FirestoreService().setConversationNames(convoId, {
-                      current.uid: me.name,
-                      u.uid: u.name,
-                    });
+                  final convoId = await FirestoreService()
+                      .createOrGetConversation(current!.uid, u.uid);
 
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatScreen(
-                          name: u.name,
-                          uid: u.uid,
-                          convoId: convoId,
-                        ),
+                  await FirestoreService().setConversationNames(convoId, {
+                    current.uid: u.name,
+                    u.uid: u.name,
+                  });
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(
+                        name: u.name,
+                        uid: u.uid,
+                        convoId: convoId,
                       ),
-                    );
-                  },
-                ),
-              );
-            },
-          );
-        },
-      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
