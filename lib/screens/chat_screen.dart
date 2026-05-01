@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../models/message_model.dart';
@@ -7,8 +8,14 @@ import '../models/message_model.dart';
 class ChatScreen extends StatefulWidget {
   final String name;
   final String uid;
+  final String convoId;
 
-  const ChatScreen({super.key, required this.name, required this.uid});
+  const ChatScreen({
+    super.key,
+    required this.name,
+    required this.uid,
+    required this.convoId,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -29,7 +36,7 @@ class _ChatScreenState extends State<ChatScreen> {
       createdAt: Timestamp.now(),
     );
 
-    await FirestoreService().sendMessage(widget.uid, msg);
+    await FirestoreService().sendMessage(widget.convoId, msg);
     controller.clear();
   }
 
@@ -40,8 +47,8 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder(
-              stream: FirestoreService().getMessages(widget.uid),
+            child: StreamBuilder<List<MessageModel>>(
+              stream: FirestoreService().getMessages(widget.convoId),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -54,9 +61,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemCount: messages.length,
                   itemBuilder: (context, i) {
                     final m = messages[i];
-                    final fromMe =
-                        m.senderId ==
-                        (AuthService().authStateChanges.first as dynamic)?.uid;
+                    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+                    final fromMe = m.senderId == currentUid;
 
                     return Align(
                       alignment: fromMe
