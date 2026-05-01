@@ -13,14 +13,19 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
+    return FutureBuilder<UserModel?>(
       future: loadUser(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final user = snapshot.data as UserModel;
+        // If no profile exists yet
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const Center(child: Text("No profile found."));
+        }
+
+        final user = snapshot.data!;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
