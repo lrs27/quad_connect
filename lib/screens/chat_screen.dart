@@ -31,9 +31,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
     messageController.clear();
 
-    // Scroll to bottom after sending
-    Future.delayed(const Duration(milliseconds: 100), () {
-      scrollController.jumpTo(scrollController.position.maxScrollExtent);
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (scrollController.hasClients) {
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
@@ -54,7 +59,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
                 final messages = snapshot.data!;
 
-                // Auto-scroll when messages update
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (scrollController.hasClients) {
                     scrollController.jumpTo(
@@ -98,7 +102,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
 
-          // Message input
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             color: Colors.grey[200],

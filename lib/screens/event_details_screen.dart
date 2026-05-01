@@ -30,6 +30,8 @@ class EventDetailsScreen extends StatelessWidget {
         }
 
         final title = data['title'] ?? "Untitled Event";
+        final currentUid = FirebaseAuth.instance.currentUser!.uid;
+        final createdBy = data['createdBy'];
         final location = data['location'] ?? "No location";
         final Timestamp? ts = data['date'];
         final date = ts?.toDate();
@@ -41,49 +43,51 @@ class EventDetailsScreen extends StatelessWidget {
           appBar: AppBar(
             title: Text(title),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          EditEventScreen(eventId: eventId, data: data),
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () async {
-                  final confirm = await showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text("Delete Event"),
-                      content: const Text(
-                        "Are you sure you want to delete this event?",
+              if (createdBy == currentUid) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            EditEventScreen(eventId: eventId, data: data),
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text("Cancel"),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () async {
+                    final confirm = await showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text("Delete Event"),
+                        content: const Text(
+                          "Are you sure you want to delete this event?",
                         ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text("Delete"),
-                        ),
-                      ],
-                    ),
-                  );
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Delete"),
+                          ),
+                        ],
+                      ),
+                    );
 
-                  if (confirm == true) {
-                    await FirestoreService().deleteEvent(eventId);
-                    if (context.mounted) Navigator.pop(context);
-                  }
-                },
-              ),
+                    if (confirm == true) {
+                      await FirestoreService().deleteEvent(eventId);
+                      if (context.mounted) Navigator.pop(context);
+                    }
+                  },
+                ),
+              ],
             ],
-          ),
+          ), // <-- THIS WAS MISSING
 
           body: Padding(
             padding: const EdgeInsets.all(16),

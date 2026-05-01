@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/user_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -15,6 +16,11 @@ class FirestoreService {
   Future<Map<String, dynamic>?> getUser(String uid) async {
     final doc = await _db.collection('users').doc(uid).get();
     return doc.data();
+  }
+
+  Future<List<UserModel>> getAll() async {
+    final snap = await _db.collection('users').get();
+    return snap.docs.map((d) => UserModel.fromMap(d.data())).toList();
   }
 
   // ------------------------------------------------------------
@@ -86,6 +92,7 @@ class FirestoreService {
   ) async {
     final convoRef = _db.collection('conversations');
 
+    // Check if conversation already exists
     final existing = await convoRef.where('userIds', arrayContains: uid).get();
 
     for (var doc in existing.docs) {
@@ -95,6 +102,7 @@ class FirestoreService {
       }
     }
 
+    // Create new conversation
     final newConvo = await convoRef.add({
       'userIds': [uid, otherUid],
       'participants': {uid: myName, otherUid: otherName},
@@ -114,16 +122,20 @@ class FirestoreService {
         .map((snap) {
           return snap.docs.map((doc) {
             final data = doc.data();
-            final participants = data['participants'] ?? {};
-            final otherUid = participants.keys.firstWhere(
-              (id) => id != uid,
-              orElse: () => null,
+
+            // FIXED: ensure proper typing
+            final participants = Map<String, dynamic>.from(
+              data['participants'] ?? {},
             );
+
+            // FIXED: no null return
+            final otherUid = participants.keys.firstWhere((id) => id != uid);
 
             return {
               'convoId': doc.id,
               'participants': participants,
               'lastMessage': data['lastMessage'] ?? '',
+              'lastTimestamp': data['lastTimestamp'], // REQUIRED
             };
           }).toList();
         });
@@ -168,6 +180,7 @@ class FirestoreService {
   Future<void> createEvent(Map<String, dynamic> event) async {
     final docRef = await _db.collection('events').add({
       ...event,
+      'createdBy': uid,
       'createdAt': FieldValue.serverTimestamp(),
     });
 

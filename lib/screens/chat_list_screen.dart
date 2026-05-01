@@ -1,126 +1,114 @@
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import 'chat_screen.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: FirestoreService().getUserConversations(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final uid = FirebaseAuth.instance.currentUser!.uid;
 
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("No conversations yet"));
-        }
+    return Scaffold(
+      appBar: AppBar(title: const Text("Chats")),
 
-        final convos = snapshot.data!;
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: FirestoreService().getUserConversations(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
 
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              alignment: Alignment.centerLeft,
-              child: const Text(
-                "Messages",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-            ),
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            Expanded(
-              child: ListView.builder(
-                itemCount: convos.length,
-                itemBuilder: (context, i) {
-                  final c = convos[i];
+          final conversations = snapshot.data!;
 
-                  final participants =
-                      c['participants'] as Map<String, dynamic>;
-                  final currentUid = FirebaseAuth.instance.currentUser!.uid;
+          if (conversations.isEmpty) {
+            return const Center(child: Text("No conversations yet"));
+          }
 
-                  // Find the other user
-                  final otherUid = participants.keys.firstWhere(
-                    (id) => id != currentUid,
-                    orElse: () => '',
-                  );
+          return ListView.builder(
+            itemCount: conversations.length,
+            itemBuilder: (context, i) {
+              final convo = conversations[i];
 
-                  if (otherUid.isEmpty) {
-                    return const ListTile(
-                      title: Text("Unknown user"),
-                      subtitle: Text("Invalid conversation"),
-                    );
-                  }
+              final participants = Map<String, dynamic>.from(
+                convo['participants'],
+              );
 
-                  final otherName = participants[otherUid] ?? "Unknown";
+              final otherUid = participants.keys.firstWhere((id) => id != uid);
 
-                  final lastMessage = c['lastMessage'] ?? "";
-                  final Timestamp? ts = c['lastTimestamp'];
-                  final timeString = ts != null ? _formatTimestamp(ts) : "";
+              final otherName = participants[otherUid] ?? "Unknown User";
 
-                  // Optional unread indicator
-                  final bool unread = c['unread'] == true;
+              final initials = otherName
+                  .trim()
+                  .split(" ")
+                  .map((e) => e[0])
+                  .take(2)
+                  .join()
+                  .toUpperCase();
 
-                  return ListTile(
-                    leading: CircleAvatar(
-                      child: Text(otherName[0].toUpperCase()),
+              final lastMessage = convo['lastMessage'] ?? "";
+
+              final Timestamp? ts = convo['lastTimestamp'];
+              final date = ts?.toDate();
+              final timeAgo = date != null
+                  ? timeago.format(date)
+                  : "Unknown time";
+
+              return ListTile(
+                leading: CircleAvatar(
+                  radius: 22,
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
-                    title: Text(
-                      otherName,
-                      style: TextStyle(
-                        fontWeight: unread
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                  ),
+                ),
+
+                title: Text(
+                  otherName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+
+                subtitle: Text(
+                  lastMessage.isEmpty ? "No messages yet" : lastMessage,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                trailing: Text(
+                  timeAgo,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(
+                        name: otherName,
+                        uid: otherUid,
+                        convoId: convo['convoId'],
                       ),
                     ),
-                    subtitle: Text(
-                      lastMessage,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: unread
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    trailing: Text(
-                      timeString,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            name: otherName,
-                            uid: otherUid,
-                            convoId: c['convoId'],
-                          ),
-                        ),
-                      );
-                    },
                   );
                 },
-              ),
-            ),
-          ],
-        );
-      },
+              );
+            },
+          );
+        },
+      ),
     );
-  }
-
-  static String _formatTimestamp(Timestamp ts) {
-    final dt = ts.toDate();
-    final now = DateTime.now();
-
-    if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
-      return "${dt.hour}:${dt.minute.toString().padLeft(2, '0')}";
-    }
-
-    return "${dt.month}/${dt.day}/${dt.year}";
   }
 }

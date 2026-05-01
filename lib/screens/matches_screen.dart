@@ -1,134 +1,180 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_service.dart';
+import '../services/matching_service.dart';
+import '../models/user_model.dart';
 import 'chat_screen.dart';
 
 class MatchesScreen extends StatelessWidget {
   const MatchesScreen({super.key});
 
+  Future<List<Map<String, dynamic>>> loadMatches() async {
+    final current = FirebaseAuth.instance.currentUser!;
+
+    // Load YOUR user data as UserModel
+    final meData = await FirestoreService().getUser(current.uid);
+    final me = UserModel.fromMap(meData!);
+
+    // Load all users
+    final allUsers = await FirestoreService().getAll();
+    final matcher = MatchingService();
+
+    final matches = <Map<String, dynamic>>[];
+
+    for (final u in allUsers) {
+      if (u.uid == me.uid) continue;
+
+      final score = matcher.calculateScore(
+        userCourses: me.courses,
+        otherCourses: u.courses,
+        userTags: me.interestTags,
+        otherTags: u.interestTags,
+      );
+
+      final sharedCourses = me.courses
+          .where((c) => u.courses.contains(c))
+          .toList();
+
+      final sharedTags = me.interestTags
+          .where((t) => u.interestTags.contains(t))
+          .toList();
+
+      matches.add({
+        'user': u,
+        'score': score,
+        'sharedCourses': sharedCourses,
+        'sharedTags': sharedTags,
+      });
+    }
+
+    matches.sort((a, b) => b['score'].compareTo(a['score']));
+    return matches;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    return Scaffold(
+      appBar: AppBar(title: const Text("Your Matches")),
 
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          alignment: Alignment.centerLeft,
-          child: const Text(
-            "Matches",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-        ),
+      body: FutureBuilder(
+        future: loadMatches(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('matches')
-                .where('userIds', arrayContains: currentUid)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+          final matches = snapshot.data as List<Map<String, dynamic>>;
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text("No matches yet"));
-              }
+          if (matches.isEmpty) {
+            return const Center(child: Text("No matches found"));
+          }
 
-              final docs = snapshot.data!.docs;
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: matches.length,
+            itemBuilder: (context, i) {
+              final u = matches[i]['user'] as UserModel;
+              final score = matches[i]['score'];
+              final sharedCourses = matches[i]['sharedCourses'] as List;
+              final sharedTags = matches[i]['sharedTags'] as List;
 
-              return ListView.builder(
-                itemCount: docs.length,
-                itemBuilder: (context, i) {
-                  final data = docs[i].data() as Map<String, dynamic>?;
+              final initials = u.name
+                  .trim()
+                  .split(" ")
+                  .map((e) => e[0])
+                  .take(2)
+                  .join()
+                  .toUpperCase();
 
-                  if (data == null) {
-                    return const ListTile(
-                      title: Text("Unknown match"),
-                      subtitle: Text("Invalid match data"),
-                    );
-                  }
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
 
-                  // SAFELY read participants map
-                  final participants = data['participants'];
-                  if (participants == null ||
-                      participants is! Map<String, dynamic>) {
-                    return const ListTile(
-                      title: Text("Unknown user"),
-                      subtitle: Text("Missing participant info"),
-                    );
-                  }
-
-                  // Find the OTHER user
-                  final String otherUid = participants.keys
-                      .cast<String>()
-                      .firstWhere((id) => id != currentUid, orElse: () => '');
-
-                  if (otherUid.isEmpty) {
-                    return const ListTile(
-                      title: Text("Invalid match"),
-                      subtitle: Text("No other participant found"),
-                    );
-                  }
-
-                  final String otherName =
-                      (participants[otherUid] as String?) ?? "Unknown";
-
-                  // Optional: reason for match
-                  final String reason =
-                      (data['reason'] as String?) ?? "Matched";
-
-                  // Optional: conversation ID (if exists)
-                  final String? convoId = data['convoId'] as String?;
-                  String finalConvoId = convoId ?? '';
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        child: Text(otherName[0].toUpperCase()),
+                  leading: CircleAvatar(
+                    radius: 22,
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
                       ),
-                      title: Text(otherName),
-                      subtitle: Text(reason),
-                      onTap: () async {
-                        // If convoId exists, use it. Otherwise create a new conversation.
-                        if (finalConvoId.isEmpty) {
-                          finalConvoId = await FirestoreService().startConversation(
-                            otherUid,
-                            otherName,
-                            "You", // you can swap this for the real current user's name if you store it
-                          );
-
-                          // Save convoId back into match doc
-                          await docs[i].reference.update({
-                            'convoId': finalConvoId,
-                          });
-                        }
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatScreen(
-                              name: otherName,
-                              uid: otherUid,
-                              convoId: finalConvoId,
-                            ),
-                          ),
-                        );
-                      },
                     ),
-                  );
-                },
+                  ),
+
+                  title: Text(
+                    u.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 6),
+                      Text(
+                        "Match Score: $score%",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+
+                      if (sharedCourses.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          "Shared Courses: ${sharedCourses.join(", ")}",
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+
+                      if (sharedTags.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          "Shared Interests: ${sharedTags.join(", ")}",
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ],
+                  ),
+
+                  onTap: () async {
+                    // Load YOUR name correctly
+                    final meData = await FirestoreService().getUser(
+                      FirebaseAuth.instance.currentUser!.uid,
+                    );
+                    final myName = meData?['name'] ?? "Unknown";
+
+                    // Start conversation with correct names
+                    final convoId = await FirestoreService().startConversation(
+                      u.uid, // other user UID
+                      u.name, // other user name
+                      myName, // YOUR name (correct)
+                    );
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          name: u.name,
+                          uid: u.uid,
+                          convoId: convoId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               );
             },
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 }
