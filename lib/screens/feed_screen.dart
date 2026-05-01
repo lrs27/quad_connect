@@ -1,38 +1,32 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
-import '../models/post_model.dart';
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const FeedBody();
-  }
-}
-
-class FeedBody extends StatelessWidget {
-  const FeedBody({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<PostModel>>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: FirestoreService().getPosts(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text("No posts yet"));
         }
 
         final posts = snapshot.data!;
 
         return Column(
           children: [
-            // Top bar (replaces AppBar)
             Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.centerLeft,
               child: const Text(
-                "QuadConnect",
+                "Feed",
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),
@@ -43,6 +37,14 @@ class FeedBody extends StatelessWidget {
                 itemCount: posts.length,
                 itemBuilder: (context, i) {
                   final p = posts[i];
+
+                  final String authorName = p['authorName'] ?? "Unknown";
+                  final String text = p['text'] ?? "";
+                  final Timestamp? ts = p['timestamp'];
+                  final String timeString = ts != null
+                      ? ts.toDate().toLocal().toString()
+                      : "Unknown time";
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: Padding(
@@ -50,12 +52,25 @@ class FeedBody extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p.text),
-                          const SizedBox(height: 8),
                           Text(
-                            p.createdAt.toDate().toString(),
-                            style: const TextStyle(fontSize: 12),
+                            authorName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
+
+                          const SizedBox(height: 4),
+                          Text(
+                            timeString,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+                          Text(text),
                         ],
                       ),
                     ),

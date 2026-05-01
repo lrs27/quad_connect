@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/profile_setup_screen.dart';
 import 'screens/home_screen.dart';
-import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  runApp(const QuadConnectApp());
+  runApp(QuadConnectApp());
 }
 
 class QuadConnectApp extends StatelessWidget {
@@ -17,6 +19,15 @@ class QuadConnectApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: LoginScreen());
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/setup': (context) => const ProfileSetupScreen(),
+        '/home': (context) => const HomeScreen(),
+      },
+    );
   }
 }

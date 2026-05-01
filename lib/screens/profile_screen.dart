@@ -1,89 +1,141 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
-import '../models/user_model.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  Future<UserModel?> loadUser() async {
-    final user = await AuthService().authStateChanges.first;
-    return FirestoreService().getUser(user!.uid);
+  Future<Map<String, dynamic>?> _loadProfile() async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    return await FirestoreService().getUser(uid);
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UserModel?>(
-      future: loadUser(),
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _loadProfile(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // If no profile exists yet
-        if (!snapshot.hasData || snapshot.data == null) {
-          return const Center(child: Text("No profile found."));
+        final data = snapshot.data;
+
+        if (data == null) {
+          return const Center(child: Text("Profile not found"));
         }
 
-        final user = snapshot.data!;
+        final String name = data['name'] ?? "No name";
+        final String email = data['email'] ?? "";
+        final String major = data['major'] ?? "";
+        final String year = data['year'] ?? "";
+        final List courses = data['courses'] ?? [];
+        final List interests = data['interestTags'] ?? [];
+        final List availability = data['availability'] ?? [];
+        final String? photoUrl = data['photoUrl'];
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const CircleAvatar(radius: 40, child: Icon(Icons.person)),
-              const SizedBox(height: 12),
-
-              Text(
-                user.name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+              // -----------------------
+              // HEADER
+              // -----------------------
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundImage: photoUrl != null
+                        ? NetworkImage(photoUrl)
+                        : null,
+                    child: photoUrl == null
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : "?",
+                            style: const TextStyle(fontSize: 32),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (email.isNotEmpty)
+                          Text(
+                            email,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        if (major.isNotEmpty || year.isNotEmpty)
+                          Text("$major • $year"),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              Text("${user.major} • ${user.year}"),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
+              // -----------------------
+              // COURSES
+              // -----------------------
+              if (courses.isNotEmpty) ...[
+                const Text(
                   "Courses",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-              ),
-              Wrap(
-                spacing: 8,
-                children: user.courses
-                    .map((c) => Chip(label: Text(c)))
-                    .toList(),
-              ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: courses
+                      .map((c) => Chip(label: Text(c.toString())))
+                      .toList(),
+                ),
+                const SizedBox(height: 20),
+              ],
 
-              const SizedBox(height: 20),
-
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
+              // -----------------------
+              // INTERESTS
+              // -----------------------
+              if (interests.isNotEmpty) ...[
+                const Text(
                   "Interests",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-              ),
-              Wrap(
-                spacing: 8,
-                children: user.interestTags
-                    .map((t) => Chip(label: Text(t)))
-                    .toList(),
-              ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: interests
+                      .map((i) => Chip(label: Text(i.toString())))
+                      .toList(),
+                ),
+                const SizedBox(height: 20),
+              ],
 
-              const SizedBox(height: 40),
-
-              ElevatedButton(
-                onPressed: () async {
-                  await AuthService().logout();
-                },
-                child: const Text("Logout"),
-              ),
+              // -----------------------
+              // AVAILABILITY
+              // -----------------------
+              if (availability.isNotEmpty) ...[
+                const Text(
+                  "Availability",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: availability
+                      .map((a) => Chip(label: Text(a.toString())))
+                      .toList(),
+                ),
+              ],
             ],
           ),
         );

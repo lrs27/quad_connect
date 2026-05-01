@@ -1,100 +1,134 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
-import '../services/matching_service.dart';
-import '../services/auth_service.dart';
-import '../models/user_model.dart';
 import 'chat_screen.dart';
 
 class MatchesScreen extends StatelessWidget {
   const MatchesScreen({super.key});
 
-  Future<List<Map<String, dynamic>>> loadMatches() async {
-    final current = await AuthService().authStateChanges.first;
-
-    // Load current user's profile (nullable)
-    final me = await FirestoreService().getUser(current!.uid);
-
-    // If profile doesn't exist, return empty list
-    if (me == null) return [];
-
-    final allUsers = await FirestoreService().getAll();
-    final matcher = MatchingService();
-
-    final matches = <Map<String, dynamic>>[];
-
-    for (final u in allUsers) {
-      // Skip yourself
-      if (u.uid == me.uid) continue;
-
-      final score = matcher.calculateScore(
-        userCourses: me.courses,
-        otherCourses: u.courses,
-        userTags: me.interestTags,
-        otherTags: u.interestTags,
-      );
-
-      matches.add({'user': u, 'score': score});
-    }
-
-    matches.sort((a, b) => b['score'].compareTo(a['score']));
-    return matches.take(5).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: loadMatches(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final currentUid = FirebaseAuth.instance.currentUser!.uid;
 
-        final matches = snapshot.data as List<Map<String, dynamic>>;
-
-        if (matches.isEmpty) {
-          return const Center(child: Text("No matches available yet."));
-        }
-
-        return ListView.builder(
+    return Column(
+      children: [
+        Container(
           padding: const EdgeInsets.all(16),
-          itemCount: matches.length,
-          itemBuilder: (context, i) {
-            final u = matches[i]['user'] as UserModel;
-            final score = matches[i]['score'];
+          alignment: Alignment.centerLeft,
+          child: const Text(
+            "Matches",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+        ),
 
-            return Card(
-              child: ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.person)),
-                title: Text(u.name),
-                subtitle: Text("${u.major} • ${u.year}"),
-                trailing: Text("$score%"),
-                onTap: () async {
-                  final current = await AuthService().authStateChanges.first;
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('matches')
+                .where('userIds', arrayContains: currentUid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-                  final convoId = await FirestoreService()
-                      .createOrGetConversation(current!.uid, u.uid);
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(child: Text("No matches yet"));
+              }
 
-                  await FirestoreService().setConversationNames(convoId, {
-                    current.uid: u.name,
-                    u.uid: u.name,
-                  });
+              final docs = snapshot.data!.docs;
 
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatScreen(
-                        name: u.name,
-                        uid: u.uid,
-                        convoId: convoId,
+              return ListView.builder(
+                itemCount: docs.length,
+                itemBuilder: (context, i) {
+                  final data = docs[i].data() as Map<String, dynamic>?;
+
+                  if (data == null) {
+                    return const ListTile(
+                      title: Text("Unknown match"),
+                      subtitle: Text("Invalid match data"),
+                    );
+                  }
+
+                  // SAFELY read participants map
+                  final participants = data['participants'];
+                  if (participants == null ||
+                      participants is! Map<String, dynamic>) {
+                    return const ListTile(
+                      title: Text("Unknown user"),
+                      subtitle: Text("Missing participant info"),
+                    );
+                  }
+
+                  // Find the OTHER user
+                  final String otherUid = participants.keys
+                      .cast<String>()
+                      .firstWhere((id) => id != currentUid, orElse: () => '');
+
+                  if (otherUid.isEmpty) {
+                    return const ListTile(
+                      title: Text("Invalid match"),
+                      subtitle: Text("No other participant found"),
+                    );
+                  }
+
+                  final String otherName =
+                      (participants[otherUid] as String?) ?? "Unknown";
+
+                  // Optional: reason for match
+                  final String reason =
+                      (data['reason'] as String?) ?? "Matched";
+
+                  // Optional: conversation ID (if exists)
+                  final String? convoId = data['convoId'] as String?;
+                  String finalConvoId = convoId ?? '';
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        child: Text(otherName[0].toUpperCase()),
                       ),
+                      title: Text(otherName),
+                      subtitle: Text(reason),
+                      onTap: () async {
+                        // If convoId exists, use it. Otherwise create a new conversation.
+                        if (finalConvoId.isEmpty) {
+                          finalConvoId = await FirestoreService().startConversation(
+                            otherUid,
+                            otherName,
+                            "You", // you can swap this for the real current user's name if you store it
+                          );
+
+                          // Save convoId back into match doc
+                          await docs[i].reference.update({
+                            'convoId': finalConvoId,
+                          });
+                        }
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              name: otherName,
+                              uid: otherUid,
+                              convoId: finalConvoId,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
-              ),
-            );
-          },
-        );
-      },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

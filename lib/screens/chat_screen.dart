@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_service.dart';
-import '../services/auth_service.dart';
-import '../models/message_model.dart';
 
 class ChatScreen extends StatefulWidget {
   final String name;
@@ -22,32 +19,33 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final controller = TextEditingController();
+  final TextEditingController messageController = TextEditingController();
+  final ScrollController scrollController = ScrollController();
+  final String myUid = FirebaseAuth.instance.currentUser!.uid;
 
-  Future<void> send() async {
-    if (controller.text.trim().isEmpty) return;
+  void sendMessage() async {
+    final text = messageController.text.trim();
+    if (text.isEmpty) return;
 
-    final user = await AuthService().authStateChanges.first;
+    await FirestoreService().sendMessage(widget.convoId, text, widget.uid);
 
-    final msg = MessageModel(
-      messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-      senderId: user!.uid,
-      text: controller.text.trim(),
-      createdAt: Timestamp.now(),
-    );
+    messageController.clear();
 
-    await FirestoreService().sendMessage(widget.convoId, msg);
-    controller.clear();
+    // Scroll to bottom after sending
+    Future.delayed(const Duration(milliseconds: 100), () {
+      scrollController.jumpTo(scrollController.position.maxScrollExtent);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.name)),
+
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<List<MessageModel>>(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: FirestoreService().getMessages(widget.convoId),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
@@ -56,29 +54,40 @@ class _ChatScreenState extends State<ChatScreen> {
 
                 final messages = snapshot.data!;
 
+                // Auto-scroll when messages update
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (scrollController.hasClients) {
+                    scrollController.jumpTo(
+                      scrollController.position.maxScrollExtent,
+                    );
+                  }
+                });
+
                 return ListView.builder(
-                  padding: const EdgeInsets.all(12),
+                  controller: scrollController,
                   itemCount: messages.length,
                   itemBuilder: (context, i) {
-                    final m = messages[i];
-                    final currentUid = FirebaseAuth.instance.currentUser!.uid;
-                    final fromMe = m.senderId == currentUid;
+                    final msg = messages[i];
+                    final isMe = msg['sender'] == myUid;
 
-                    return Align(
-                      alignment: fromMe
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      alignment: isMe
                           ? Alignment.centerRight
                           : Alignment.centerLeft,
                       child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: fromMe ? Colors.blue : Colors.grey[300],
+                          color: isMe ? Colors.blue : Colors.grey[300],
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          m.text,
+                          msg['text'] ?? '',
                           style: TextStyle(
-                            color: fromMe ? Colors.white : Colors.black,
+                            color: isMe ? Colors.white : Colors.black,
                           ),
                         ),
                       ),
@@ -89,19 +98,26 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
 
-          // Input
-          SafeArea(
+          // Message input
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: Colors.grey[200],
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: controller,
+                    controller: messageController,
                     decoration: const InputDecoration(
                       hintText: "Type a message...",
+                      border: OutlineInputBorder(),
                     ),
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.send), onPressed: send),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.blue),
+                  onPressed: sendMessage,
+                ),
               ],
             ),
           ),

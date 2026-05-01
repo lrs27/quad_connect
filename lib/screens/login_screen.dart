@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:quad_connect/screens/home_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
-import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,27 +22,27 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final user = await AuthService().login(
-        email.text.trim(),
-        password.text.trim(),
-      );
-
-      if (user != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
+      await AuthService().login(email.text.trim(), password.text.trim());
     } catch (e) {
-      setState(() => error = e.toString());
+      setState(() => error = "Invalid email or password.");
     }
 
-    setState(() => loading = false);
+    if (mounted) {
+      setState(() => loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
@@ -59,7 +58,13 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
 
               if (error != null)
-                Text(error!, style: const TextStyle(color: Colors.red)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
 
               TextField(
                 controller: email,
@@ -72,8 +77,19 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
               const SizedBox(height: 20),
+
               ElevatedButton(
-                onPressed: loading ? null : login,
+                onPressed: loading
+                    ? null
+                    : () async {
+                        FocusScope.of(context).unfocus(); // CLOSE KEYBOARD
+                        await login();
+
+                        // If login succeeded, navigate to home
+                        if (FirebaseAuth.instance.currentUser != null) {
+                          Navigator.pushReplacementNamed(context, '/home');
+                        }
+                      },
                 child: loading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text("Login"),
@@ -81,10 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               TextButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                  );
+                  Navigator.pushNamed(context, '/register');
                 },
                 child: const Text("Create account"),
               ),

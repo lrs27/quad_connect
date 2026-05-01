@@ -1,80 +1,102 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
-import '../models/event_model.dart';
-import '../services/auth_service.dart';
+import 'event_details_screen.dart';
+import 'create_event_screen.dart';
 
 class EventsScreen extends StatelessWidget {
   const EventsScreen({super.key});
 
+  String formatTime(String raw, BuildContext context) {
+    final parts = raw.split(":");
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+
+    final t = TimeOfDay(hour: hour, minute: minute);
+    return t.format(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<EventModel>>(
-      stream: FirestoreService().getPublicEvents(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreateEventScreen()),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
 
-        final events = snapshot.data!;
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('events')
+            .where('isPublic', isEqualTo: true)
+            .orderBy('date')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        return Column(
-          children: [
-            // Top bar (replaces AppBar)
-            Container(
-              padding: const EdgeInsets.all(16),
-              alignment: Alignment.centerLeft,
-              child: const Text(
-                "Upcoming Events",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-            ),
+          final docs = snapshot.data!.docs;
 
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: events.length,
-                itemBuilder: (context, i) {
-                  final e = events[i];
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            itemBuilder: (context, i) {
+              final data = docs[i].data() as Map<String, dynamic>;
+              final eventId = docs[i].id;
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            e.title,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(e.date.toDate().toString()),
-                          Text(e.location),
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: () async {
-                              final user =
-                                  await AuthService().authStateChanges.first;
-                              await FirestoreService().rsvpEvent(
-                                e.eventId,
-                                user!.uid,
-                                "going",
-                              );
-                            },
-                            child: const Text("RSVP"),
-                          ),
-                        ],
-                      ),
+              final title = data['title'] ?? 'Untitled Event';
+              final location = data['location'] ?? 'No location';
+              final Timestamp? ts = data['date'];
+              final date = ts?.toDate();
+
+              final start = data['startTime'] ?? "0:00";
+              final end = data['endTime'] ?? "0:00";
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  title: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(
+                        date != null
+                            ? "${date.month}/${date.day}/${date.year}"
+                            : "No date",
+                      ),
+                      Text(
+                        "${formatTime(start, context)} – ${formatTime(end, context)}",
+                      ),
+                      const SizedBox(height: 4),
+                      Text(location),
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EventDetailsScreen(eventId: eventId),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

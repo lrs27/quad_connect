@@ -1,8 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
-import '../services/auth_service.dart';
-import '../models/user_model.dart';
-import 'home_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -12,114 +11,146 @@ class ProfileSetupScreen extends StatefulWidget {
 }
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
-  final _majorController = TextEditingController();
-  final _yearController = TextEditingController();
-  final _coursesController = TextEditingController();
-  final _interestsController = TextEditingController();
+  final nameController = TextEditingController();
+  final majorController = TextEditingController();
+  final yearController = TextEditingController();
+  final coursesController = TextEditingController(); // comma-separated
+  final interestsController = TextEditingController(); // comma-separated
+  final availabilityController = TextEditingController(); // comma-separated
 
-  bool _loading = false;
-  String? _error;
+  bool saving = false;
+  String? error;
 
-  @override
-  void dispose() {
-    _majorController.dispose();
-    _yearController.dispose();
-    _coursesController.dispose();
-    _interestsController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _finishSetup() async {
+  Future<void> saveProfile() async {
     setState(() {
-      _loading = true;
-      _error = null;
+      saving = true;
+      error = null;
     });
 
     try {
-      final currentUser = await AuthService().authStateChanges.first;
+      final user = FirebaseAuth.instance.currentUser!;
+      final uid = user.uid;
 
-      if (currentUser == null) {
-        setState(() => _error = "User not logged in");
-        return;
-      }
+      // Convert comma-separated fields into lists
+      List<String> courses = coursesController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
 
-      final model = UserModel(
-        uid: currentUser.uid,
-        name: currentUser.email!.split('@')[0],
-        email: currentUser.email!,
-        major: _majorController.text.trim(),
-        year: _yearController.text.trim(),
-        courses: _coursesController.text
-            .split(',')
-            .map((e) => e.trim())
-            .toList(),
-        interestTags: _interestsController.text
-            .split(',')
-            .map((e) => e.trim())
-            .toList(),
-        availability: [],
-        profilePhotoUrl: "",
-        fcmToken: "",
-      );
+      List<String> interests = interestsController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
 
-      await FirestoreService().createUser(model);
+      List<String> availability = availabilityController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
 
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
+      // Build user data map (matches new UserModel + FirestoreService)
+      final data = {
+        'uid': uid,
+        'email': user.email ?? '',
+        'name': nameController.text.trim(),
+        'major': majorController.text.trim(),
+        'year': yearController.text.trim(),
+        'courses': courses,
+        'interestTags': interests,
+        'availability': availability,
+        'photoUrl': null,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      await FirestoreService().createUser(data);
+
+      if (!mounted) return;
+
+      // Navigate to home (bottom nav)
+      Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      setState(() => _error = "Failed to save profile: $e");
-    } finally {
-      setState(() => _loading = false);
+      setState(() {
+        error = "Failed to save profile. Please try again.";
+      });
     }
+
+    if (mounted) {
+      setState(() {
+        saving = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    majorController.dispose();
+    yearController.dispose();
+    coursesController.dispose();
+    interestsController.dispose();
+    availabilityController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Profile Setup")),
-      body: Padding(
+      appBar: AppBar(title: const Text("Set Up Profile")),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_error != null)
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(error!, style: const TextStyle(color: Colors.red)),
+              ),
 
             TextField(
-              controller: _majorController,
+              controller: nameController,
+              decoration: const InputDecoration(labelText: "Name"),
+            ),
+
+            TextField(
+              controller: majorController,
               decoration: const InputDecoration(labelText: "Major"),
             ),
 
             TextField(
-              controller: _yearController,
+              controller: yearController,
               decoration: const InputDecoration(labelText: "Year"),
             ),
 
             TextField(
-              controller: _coursesController,
+              controller: coursesController,
               decoration: const InputDecoration(
-                labelText: "Courses (comma separated)",
+                labelText: "Courses (comma-separated)",
               ),
             ),
 
             TextField(
-              controller: _interestsController,
+              controller: interestsController,
               decoration: const InputDecoration(
-                labelText: "Interests (comma separated)",
+                labelText: "Interests (comma-separated)",
+              ),
+            ),
+
+            TextField(
+              controller: availabilityController,
+              decoration: const InputDecoration(
+                labelText: "Availability (comma-separated)",
               ),
             ),
 
             const SizedBox(height: 20),
 
             ElevatedButton(
-              onPressed: _loading ? null : _finishSetup,
-              child: _loading
+              onPressed: saving ? null : saveProfile,
+              child: saving
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Finish Setup"),
+                  : const Text("Save & Continue"),
             ),
           ],
         ),
