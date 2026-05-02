@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -82,14 +84,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: loading
                     ? null
                     : () async {
-                        FocusScope.of(context).unfocus(); // CLOSE KEYBOARD
+                        FocusScope.of(context).unfocus();
                         await login();
 
-                        // If login succeeded, navigate to home
                         if (FirebaseAuth.instance.currentUser != null) {
+                          final uid = FirebaseAuth.instance.currentUser!.uid;
+
+                          // Get FCM token
+                          final token = await FirebaseMessaging.instance
+                              .getToken();
+
+                          // Save token
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uid)
+                              .update({'fcmToken': token});
+
                           Navigator.pushReplacementNamed(context, '/home');
                         }
                       },
+
                 child: loading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text("Login"),

@@ -5,8 +5,16 @@ import '../services/firestore_service.dart';
 import 'chat_screen.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-class ChatListScreen extends StatelessWidget {
+class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
+
+  @override
+  State<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends State<ChatListScreen> {
+  final TextEditingController searchController = TextEditingController();
+  String searchQuery = "";
 
   // ------------------------------------------------------------
   // REUSABLE CONVERSATION TILE (Unread Badge)
@@ -29,7 +37,6 @@ class ChatListScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          // Avatar
           CircleAvatar(
             radius: 24,
             child: Text(
@@ -40,7 +47,6 @@ class ChatListScreen extends StatelessWidget {
 
           const SizedBox(width: 12),
 
-          // Name + message
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +81,6 @@ class ChatListScreen extends StatelessWidget {
 
           const SizedBox(width: 12),
 
-          // Time + unread badge
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -122,76 +127,122 @@ class ChatListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text("Chats")),
 
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: FirestoreService().getUserConversations(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final conversations = snapshot.data!;
-
-          if (conversations.isEmpty) {
-            return const Center(child: Text("No conversations yet"));
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: conversations.length,
-            itemBuilder: (context, i) {
-              final convo = conversations[i];
-
-              final participants = Map<String, dynamic>.from(
-                convo['participants'],
-              );
-
-              final otherUid = participants.keys.firstWhere((id) => id != uid);
-
-              final otherName = participants[otherUid] ?? "Unknown User";
-
-              final lastMessage = convo['lastMessage'] ?? "";
-
-              final Timestamp? ts = convo['lastTimestamp'];
-              final date = ts?.toDate();
-              final timeAgo = date != null
-                  ? timeago.format(date)
-                  : "Unknown time";
-
-              final unreadCount = convo['unreadCount']?[uid] ?? 0;
-
-              return InkWell(
-                onTap: () {
-                  // Reset unread count when opening chat
-                  FirebaseFirestore.instance
-                      .collection("conversations")
-                      .doc(convo['convoId'])
-                      .update({"unreadCount.$uid": 0});
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatScreen(
-                        name: otherName,
-                        uid: otherUid,
-                        convoId: convo['convoId'],
-                      ),
-                    ),
-                  );
-                },
-                child: buildConversationTile(
-                  name: otherName,
-                  lastMessage: lastMessage,
-                  timeAgo: timeAgo,
-                  unreadCount: unreadCount,
+      body: Column(
+        children: [
+          // ---------------- SEARCH BAR ----------------
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText: "Search chats...",
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              );
-            },
-          );
-        },
+              ),
+              onChanged: (value) {
+                setState(() => searchQuery = value.toLowerCase());
+              },
+            ),
+          ),
+
+          // ---------------- CHAT LIST ----------------
+          Expanded(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: FirestoreService().getUserConversations(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                }
+
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final conversations = snapshot.data!;
+
+                if (conversations.isEmpty) {
+                  return const Center(child: Text("No conversations yet"));
+                }
+
+                // ---------------- FILTERING ----------------
+                final filtered = conversations.where((convo) {
+                  final participants = Map<String, dynamic>.from(
+                    convo['participants'],
+                  );
+
+                  final otherUid = participants.keys.firstWhere(
+                    (id) => id != uid,
+                  );
+
+                  final otherName =
+                      participants[otherUid]?.toString().toLowerCase() ?? "";
+
+                  final lastMessage =
+                      convo['lastMessage']?.toString().toLowerCase() ?? "";
+
+                  return otherName.contains(searchQuery) ||
+                      lastMessage.contains(searchQuery);
+                }).toList();
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) {
+                    final convo = filtered[i];
+
+                    final participants = Map<String, dynamic>.from(
+                      convo['participants'],
+                    );
+
+                    final otherUid = participants.keys.firstWhere(
+                      (id) => id != uid,
+                    );
+
+                    final otherName = participants[otherUid] ?? "Unknown User";
+
+                    final lastMessage = convo['lastMessage'] ?? "";
+
+                    final Timestamp? ts = convo['lastTimestamp'];
+                    final date = ts?.toDate();
+                    final timeAgo = date != null
+                        ? timeago.format(date)
+                        : "Unknown time";
+
+                    final unreadCount = convo['unreadCount']?[uid] ?? 0;
+
+                    return InkWell(
+                      onTap: () {
+                        FirebaseFirestore.instance
+                            .collection("conversations")
+                            .doc(convo['convoId'])
+                            .update({"unreadCount.$uid": 0});
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              name: otherName,
+                              uid: otherUid,
+                              convoId: convo['convoId'],
+                            ),
+                          ),
+                        );
+                      },
+                      child: buildConversationTile(
+                        name: otherName,
+                        lastMessage: lastMessage,
+                        timeAgo: timeAgo,
+                        unreadCount: unreadCount,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
