@@ -87,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(height: 60),
+                const SizedBox(height: 50),
 
                 // -----------------------
                 // PROFILE PHOTO
@@ -177,7 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Navigator.pushReplacementNamed(context, '/');
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[800],
+                    backgroundColor: const Color.fromARGB(255, 203, 243, 246),
                     minimumSize: const Size(double.infinity, 50),
                   ),
                   child: const Text("Logout"),

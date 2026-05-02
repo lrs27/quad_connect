@@ -161,81 +161,117 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 }
 
                 final conversations = snapshot.data!;
+                final uid = FirebaseAuth.instance.currentUser!.uid;
 
-                if (conversations.isEmpty) {
-                  return const Center(child: Text("No conversations yet"));
-                }
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: Future.wait(
+                    conversations.map((convo) async {
+                      final convoId = convo['convoId'];
 
-                // ---------------- FILTERING ----------------
-                final filtered = conversations.where((convo) {
-                  final participants = Map<String, dynamic>.from(
-                    convo['participants'],
-                  );
+                      // Load ALL messages for deep search
+                      final messagesSnap = await FirebaseFirestore.instance
+                          .collection("conversations")
+                          .doc(convoId)
+                          .collection("messages")
+                          .get();
 
-                  final otherUid = participants.keys.firstWhere(
-                    (id) => id != uid,
-                  );
+                      final allMessages = messagesSnap.docs
+                          .map((d) => d['text'].toString().toLowerCase())
+                          .toList();
 
-                  final otherName =
-                      participants[otherUid]?.toString().toLowerCase() ?? "";
+                      return {...convo, 'allMessages': allMessages};
+                    }),
+                  ),
+                  builder: (context, deepSnapshot) {
+                    if (!deepSnapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  final lastMessage =
-                      convo['lastMessage']?.toString().toLowerCase() ?? "";
+                    final enriched = deepSnapshot.data!;
 
-                  return otherName.contains(searchQuery) ||
-                      lastMessage.contains(searchQuery);
-                }).toList();
+                    // ---------------- FILTERING ----------------
+                    final filtered = enriched.where((convo) {
+                      final participants = Map<String, dynamic>.from(
+                        convo['participants'],
+                      );
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) {
-                    final convo = filtered[i];
+                      final otherUid = participants.keys.firstWhere(
+                        (id) => id != uid,
+                      );
 
-                    final participants = Map<String, dynamic>.from(
-                      convo['participants'],
-                    );
+                      final otherName =
+                          participants[otherUid]?.toString().toLowerCase() ??
+                          "";
 
-                    final otherUid = participants.keys.firstWhere(
-                      (id) => id != uid,
-                    );
+                      final lastMessage =
+                          convo['lastMessage']?.toString().toLowerCase() ?? "";
 
-                    final otherName = participants[otherUid] ?? "Unknown User";
+                      final allMessages = (convo['allMessages'] as List)
+                          .join(" ")
+                          .toLowerCase();
 
-                    final lastMessage = convo['lastMessage'] ?? "";
+                      return otherName.contains(searchQuery) ||
+                          lastMessage.contains(searchQuery) ||
+                          allMessages.contains(searchQuery);
+                    }).toList();
 
-                    final Timestamp? ts = convo['lastTimestamp'];
-                    final date = ts?.toDate();
-                    final timeAgo = date != null
-                        ? timeago.format(date)
-                        : "Unknown time";
+                    if (filtered.isEmpty) {
+                      return const Center(child: Text("No matching chats"));
+                    }
 
-                    final unreadCount = convo['unreadCount']?[uid] ?? 0;
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) {
+                        final convo = filtered[i];
 
-                    return InkWell(
-                      onTap: () {
-                        FirebaseFirestore.instance
-                            .collection("conversations")
-                            .doc(convo['convoId'])
-                            .update({"unreadCount.$uid": 0});
+                        final participants = Map<String, dynamic>.from(
+                          convo['participants'],
+                        );
 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatScreen(
-                              name: otherName,
-                              uid: otherUid,
-                              convoId: convo['convoId'],
-                            ),
+                        final otherUid = participants.keys.firstWhere(
+                          (id) => id != uid,
+                        );
+
+                        final otherName =
+                            participants[otherUid] ?? "Unknown User";
+
+                        final lastMessage = convo['lastMessage'] ?? "";
+
+                        final Timestamp? ts = convo['lastTimestamp'];
+                        final date = ts?.toDate();
+                        final timeAgo = date != null
+                            ? timeago.format(date)
+                            : "Unknown time";
+
+                        final unreadCount = convo['unreadCount']?[uid] ?? 0;
+
+                        return InkWell(
+                          onTap: () {
+                            FirebaseFirestore.instance
+                                .collection("conversations")
+                                .doc(convo['convoId'])
+                                .update({"unreadCount.$uid": 0});
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatScreen(
+                                  name: otherName,
+                                  uid: otherUid,
+                                  convoId: convo['convoId'],
+                                ),
+                              ),
+                            );
+                          },
+                          child: buildConversationTile(
+                            name: otherName,
+                            lastMessage: lastMessage,
+                            timeAgo: timeAgo,
+                            unreadCount: unreadCount,
                           ),
                         );
                       },
-                      child: buildConversationTile(
-                        name: otherName,
-                        lastMessage: lastMessage,
-                        timeAgo: timeAgo,
-                        unreadCount: unreadCount,
-                      ),
                     );
                   },
                 );

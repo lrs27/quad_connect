@@ -229,4 +229,27 @@ class FirestoreService {
           'timestamp': FieldValue.serverTimestamp(),
         });
   }
+
+  Future<void> rsvpToEvent(String eventId, String uid, String name) async {
+    final eventRef = FirebaseFirestore.instance
+        .collection("events")
+        .doc(eventId);
+
+    await eventRef.collection("rsvps").doc(uid).set({
+      "name": name,
+      "timestamp": FieldValue.serverTimestamp(),
+    });
+
+    await eventRef.update({"goingCount": FieldValue.increment(1)});
+  }
+
+  Future<void> cancelRsvp(String eventId, String uid) async {
+    final eventRef = FirebaseFirestore.instance
+        .collection("events")
+        .doc(eventId);
+
+    await eventRef.collection("rsvps").doc(uid).delete();
+
+    await eventRef.update({"goingCount": FieldValue.increment(-1)});
+  }
 }
