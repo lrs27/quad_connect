@@ -3,12 +3,58 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   Future<Map<String, dynamic>?> _loadProfile() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     return await FirestoreService().getUser(uid);
+  }
+
+  void _addItemDialog({
+    required String title,
+    required Function(String) onAdd,
+  }) {
+    final controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Add $title"),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(hintText: "Enter $title"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                onAdd(controller.text.trim());
+              }
+              Navigator.pop(context);
+            },
+            child: const Text("Add"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateField(String field, List updatedList) async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    await FirebaseFirestore.instance.collection("users").doc(uid).update({
+      field: updatedList,
+    });
+    setState(() {}); // refresh UI
   }
 
   @override
@@ -21,7 +67,6 @@ class ProfileScreen extends StatelessWidget {
         }
 
         final data = snapshot.data;
-
         if (data == null) {
           return const Center(child: Text("Profile not found"));
         }
@@ -30,116 +75,170 @@ class ProfileScreen extends StatelessWidget {
         final String email = data['email'] ?? "";
         final String major = data['major'] ?? "";
         final String year = data['year'] ?? "";
-        final List courses = data['courses'] ?? [];
-        final List interests = data['interestTags'] ?? [];
-        final List availability = data['availability'] ?? [];
+        final List courses = List.from(data['courses'] ?? []);
+        final List interests = List.from(data['interestTags'] ?? []);
+        final List availability = List.from(data['availability'] ?? []);
         final String? photoUrl = data['photoUrl'];
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // -----------------------
-              // HEADER
-              // -----------------------
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundImage: photoUrl != null
-                        ? NetworkImage(photoUrl)
-                        : null,
-                    child: photoUrl == null
-                        ? Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : "?",
-                            style: const TextStyle(fontSize: 32),
-                          )
-                        : null,
+        return Scaffold(
+          appBar: AppBar(title: const Text("Profile"), centerTitle: true),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 60),
+
+                // -----------------------
+                // PROFILE PHOTO
+                // -----------------------
+                CircleAvatar(
+                  radius: 60,
+                  backgroundImage: photoUrl != null
+                      ? NetworkImage(photoUrl)
+                      : null,
+                  child: photoUrl == null
+                      ? Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : "?",
+                          style: const TextStyle(fontSize: 50),
+                        )
+                      : null,
+                ),
+
+                const SizedBox(height: 16),
+
+                // -----------------------
+                // NAME + EMAIL + MAJOR/YEAR
+                // -----------------------
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (email.isNotEmpty)
-                          Text(
-                            email,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        if (major.isNotEmpty || year.isNotEmpty)
-                          Text("$major • $year"),
-                      ],
-                    ),
+                  textAlign: TextAlign.center,
+                ),
+
+                if (email.isNotEmpty)
+                  Text(
+                    email,
+                    style: const TextStyle(color: Colors.grey),
+                    textAlign: TextAlign.center,
                   ),
-                ],
-              ),
 
-              const SizedBox(height: 24),
+                if (major.isNotEmpty || year.isNotEmpty)
+                  Text(
+                    "$major • $year",
+                    style: const TextStyle(fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
 
-              // -----------------------
-              // COURSES
-              // -----------------------
-              if (courses.isNotEmpty) ...[
-                const Text(
-                  "Courses",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                const SizedBox(height: 40),
+
+                // -----------------------
+                // COURSES SECTION
+                // -----------------------
+                _buildEditableSection(
+                  title: "Courses",
+                  items: courses,
+                  fieldName: "courses",
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: courses
-                      .map((c) => Chip(label: Text(c.toString())))
-                      .toList(),
+
+                const SizedBox(height: 30),
+
+                // -----------------------
+                // INTERESTS SECTION
+                // -----------------------
+                _buildEditableSection(
+                  title: "Interests",
+                  items: interests,
+                  fieldName: "interestTags",
                 ),
-                const SizedBox(height: 20),
+
+                const SizedBox(height: 30),
+
+                // -----------------------
+                // AVAILABILITY SECTION
+                // -----------------------
+                _buildEditableSection(
+                  title: "Availability",
+                  items: availability,
+                  fieldName: "availability",
+                ),
+
+                const SizedBox(height: 40),
+
+                // -----------------------
+                // LOGOUT BUTTON
+                // -----------------------
+                ElevatedButton(
+                  onPressed: () async {
+                    await FirebaseAuth.instance.signOut();
+                    Navigator.pushReplacementNamed(context, '/');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[800],
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                  child: const Text("Logout"),
+                ),
               ],
-
-              // -----------------------
-              // INTERESTS
-              // -----------------------
-              if (interests.isNotEmpty) ...[
-                const Text(
-                  "Interests",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: interests
-                      .map((i) => Chip(label: Text(i.toString())))
-                      .toList(),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // -----------------------
-              // AVAILABILITY
-              // -----------------------
-              if (availability.isNotEmpty) ...[
-                const Text(
-                  "Availability",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: availability
-                      .map((a) => Chip(label: Text(a.toString())))
-                      .toList(),
-                ),
-              ],
-            ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  // -----------------------
+  // REUSABLE EDITABLE SECTION
+  // -----------------------
+  Widget _buildEditableSection({
+    required String title,
+    required List items,
+    required String fieldName,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                _addItemDialog(
+                  title: title.substring(0, title.length - 1),
+                  onAdd: (value) {
+                    items.add(value);
+                    _updateField(fieldName, items);
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: items
+              .map(
+                (item) => Chip(
+                  label: Text(item.toString()),
+                  onDeleted: () {
+                    items.remove(item);
+                    _updateField(fieldName, items);
+                  },
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 }

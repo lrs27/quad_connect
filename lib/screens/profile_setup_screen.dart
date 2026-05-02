@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
@@ -13,13 +12,57 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final nameController = TextEditingController();
   final majorController = TextEditingController();
-  final yearController = TextEditingController();
-  final coursesController = TextEditingController(); // comma-separated
-  final interestsController = TextEditingController(); // comma-separated
-  final availabilityController = TextEditingController(); // comma-separated
+  String? selectedYear;
+
+  List<String> courses = [];
+  List<String> interests = [];
+  List<String> availability = [];
 
   bool saving = false;
   String? error;
+
+  final List<String> yearOptions = [
+    "Freshman",
+    "Sophomore",
+    "Junior",
+    "Senior",
+    "Graduate",
+  ];
+
+  final List<String> days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  void _addItemDialog({
+    required String title,
+    required Function(String) onAdd,
+  }) {
+    final controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Add $title"),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(hintText: "Enter $title"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                onAdd(controller.text.trim());
+              }
+              Navigator.pop(context);
+            },
+            child: const Text("Add"),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> saveProfile() async {
     setState(() {
@@ -31,126 +74,192 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       final user = FirebaseAuth.instance.currentUser!;
       final uid = user.uid;
 
-      // Convert comma-separated fields into lists
-      List<String> courses = coursesController.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      List<String> interests = interestsController.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      List<String> availability = availabilityController.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      // Build user data map (matches new UserModel + FirestoreService)
       final data = {
         'uid': uid,
         'email': user.email ?? '',
         'name': nameController.text.trim(),
         'major': majorController.text.trim(),
-        'year': yearController.text.trim(),
+        'year': selectedYear ?? "",
         'courses': courses,
         'interestTags': interests,
         'availability': availability,
         'photoUrl': null,
-        'createdAt': FieldValue.serverTimestamp(),
       };
 
       await FirestoreService().createUser(data);
 
       if (!mounted) return;
-
-      // Navigate to home (bottom nav)
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      setState(() {
-        error = "Failed to save profile. Please try again.";
-      });
+      setState(() => error = "Failed to save profile. Please try again.");
     }
 
-    if (mounted) {
-      setState(() {
-        saving = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    nameController.dispose();
-    majorController.dispose();
-    yearController.dispose();
-    coursesController.dispose();
-    interestsController.dispose();
-    availabilityController.dispose();
-    super.dispose();
+    if (mounted) setState(() => saving = false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Set Up Profile")),
+      appBar: AppBar(title: const Text("Profile Setup")),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (error != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(error!, style: const TextStyle(color: Colors.red)),
-              ),
-
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Name"),
-            ),
-
-            TextField(
-              controller: majorController,
-              decoration: const InputDecoration(labelText: "Major"),
-            ),
-
-            TextField(
-              controller: yearController,
-              decoration: const InputDecoration(labelText: "Year"),
-            ),
-
-            TextField(
-              controller: coursesController,
-              decoration: const InputDecoration(
-                labelText: "Courses (comma-separated)",
-              ),
-            ),
-
-            TextField(
-              controller: interestsController,
-              decoration: const InputDecoration(
-                labelText: "Interests (comma-separated)",
-              ),
-            ),
-
-            TextField(
-              controller: availabilityController,
-              decoration: const InputDecoration(
-                labelText: "Availability (comma-separated)",
-              ),
-            ),
+              Text(error!, style: const TextStyle(color: Colors.red)),
 
             const SizedBox(height: 20),
 
-            ElevatedButton(
-              onPressed: saving ? null : saveProfile,
-              child: saving
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Save & Continue"),
+            // -----------------------
+            // NAME
+            // -----------------------
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: "Name",
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // -----------------------
+            // MAJOR
+            // -----------------------
+            TextField(
+              controller: majorController,
+              decoration: const InputDecoration(
+                labelText: "Major",
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // -----------------------
+            // YEAR DROPDOWN
+            // -----------------------
+            DropdownButtonFormField<String>(
+              value: selectedYear,
+              decoration: const InputDecoration(
+                labelText: "Year",
+                border: OutlineInputBorder(),
+              ),
+              items: yearOptions
+                  .map((y) => DropdownMenuItem(value: y, child: Text(y)))
+                  .toList(),
+              onChanged: (value) => setState(() => selectedYear = value),
+            ),
+
+            const SizedBox(height: 30),
+
+            // -----------------------
+            // COURSES
+            // -----------------------
+            const Text(
+              "Courses",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            Wrap(
+              spacing: 8,
+              children: [
+                ...courses.map(
+                  (c) => Chip(
+                    label: Text(c),
+                    onDeleted: () => setState(() => courses.remove(c)),
+                  ),
+                ),
+                ActionChip(
+                  label: const Text("+ Add"),
+                  onPressed: () => _addItemDialog(
+                    title: "Course",
+                    onAdd: (value) => setState(() => courses.add(value)),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 30),
+
+            // -----------------------
+            // INTERESTS
+            // -----------------------
+            const Text(
+              "Interests",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            Wrap(
+              spacing: 8,
+              children: [
+                ...interests.map(
+                  (i) => Chip(
+                    label: Text(i),
+                    onDeleted: () => setState(() => interests.remove(i)),
+                  ),
+                ),
+                ActionChip(
+                  label: const Text("+ Add"),
+                  onPressed: () => _addItemDialog(
+                    title: "Interest",
+                    onAdd: (value) => setState(() => interests.add(value)),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 30),
+
+            // -----------------------
+            // AVAILABILITY
+            // -----------------------
+            const Text(
+              "Availability",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            Wrap(
+              spacing: 10,
+              children: days.map((day) {
+                final selected = availability.contains(day);
+                return ChoiceChip(
+                  label: Text(day),
+                  selected: selected,
+                  selectedColor: Colors.blue,
+                  labelStyle: TextStyle(
+                    color: selected ? Colors.white : Colors.black,
+                  ),
+                  onSelected: (value) {
+                    setState(() {
+                      if (value) {
+                        availability.add(day);
+                      } else {
+                        availability.remove(day);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 40),
+
+            // -----------------------
+            // SAVE BUTTON
+            // -----------------------
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: saving ? null : saveProfile,
+                child: saving
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text("Complete Profile"),
+              ),
             ),
           ],
         ),

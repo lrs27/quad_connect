@@ -18,6 +18,7 @@ class EventsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text("Events"), centerTitle: true),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(

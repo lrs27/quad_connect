@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -37,14 +38,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   : () async {
                       setState(() => saving = true);
 
+                      // SAFE UID
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      if (uid == null) return;
+
                       // Get user profile info
-                      final user = await FirestoreService().getUser(
-                        FirestoreService().uid,
-                      );
+                      final user = await FirestoreService().getUser(uid);
 
                       await FirestoreService().createPost({
                         'text': controller.text.trim(),
-                        'authorUid': FirestoreService().uid,
+                        'authorUid': uid,
                         'authorName': user?['name'] ?? "Unknown User",
                       });
 

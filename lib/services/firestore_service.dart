@@ -4,12 +4,15 @@ import '../models/user_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String uid = FirebaseAuth.instance.currentUser!.uid;
+
+  // SAFE UID getter
+  String? get uid => FirebaseAuth.instance.currentUser?.uid;
 
   // ------------------------------------------------------------
   // USERS
   // ------------------------------------------------------------
   Future<void> createUser(Map<String, dynamic> data) async {
+    if (uid == null) return;
     await _db.collection('users').doc(uid).set(data, SetOptions(merge: true));
   }
 
@@ -68,13 +71,11 @@ class FirestoreService {
     final doc = await likeRef.get();
 
     if (doc.exists) {
-      // Unlike
       await likeRef.delete();
       await _db.collection('posts').doc(postId).update({
         'likesCount': FieldValue.increment(-1),
       });
     } else {
-      // Like
       await likeRef.set({'uid': uid});
       await _db.collection('posts').doc(postId).update({
         'likesCount': FieldValue.increment(1),
@@ -90,9 +91,10 @@ class FirestoreService {
     String otherName,
     String myName,
   ) async {
+    if (uid == null) throw Exception("User not logged in");
+
     final convoRef = _db.collection('conversations');
 
-    // Check if conversation already exists
     final existing = await convoRef.where('userIds', arrayContains: uid).get();
 
     for (var doc in existing.docs) {
@@ -102,18 +104,22 @@ class FirestoreService {
       }
     }
 
-    // Create new conversation
     final newConvo = await convoRef.add({
       'userIds': [uid, otherUid],
-      'participants': {uid: myName, otherUid: otherName},
+      'participants': {uid!: myName, otherUid: otherName},
       'lastMessage': '',
       'lastTimestamp': FieldValue.serverTimestamp(),
+      'unreadCount': {uid!: 0, otherUid: 0},
     });
 
     return newConvo.id;
   }
 
   Stream<List<Map<String, dynamic>>> getUserConversations() {
+    if (uid == null) {
+      return const Stream.empty();
+    }
+
     return _db
         .collection('conversations')
         .where('userIds', arrayContains: uid)
@@ -123,19 +129,21 @@ class FirestoreService {
           return snap.docs.map((doc) {
             final data = doc.data();
 
-            // FIXED: ensure proper typing
             final participants = Map<String, dynamic>.from(
               data['participants'] ?? {},
             );
 
-            // FIXED: no null return
-            final otherUid = participants.keys.firstWhere((id) => id != uid);
+            final otherUid = participants.keys.firstWhere(
+              (id) => id != uid,
+              orElse: () => "",
+            );
 
             return {
               'convoId': doc.id,
               'participants': participants,
               'lastMessage': data['lastMessage'] ?? '',
-              'lastTimestamp': data['lastTimestamp'], // REQUIRED
+              'lastTimestamp': data['lastTimestamp'],
+              'unreadCount': data['unreadCount'] ?? {}, // ⭐ REQUIRED
             };
           }).toList();
         });
@@ -149,6 +157,8 @@ class FirestoreService {
     String text,
     String receiverUid,
   ) async {
+    if (uid == null) return;
+
     final convoRef = _db.collection('conversations').doc(convoId);
 
     await convoRef.collection('messages').add({
@@ -161,6 +171,7 @@ class FirestoreService {
     await convoRef.update({
       'lastMessage': text,
       'lastTimestamp': FieldValue.serverTimestamp(),
+      'unreadCount.$receiverUid': FieldValue.increment(1),
     });
   }
 
@@ -178,6 +189,8 @@ class FirestoreService {
   // EVENTS
   // ------------------------------------------------------------
   Future<void> createEvent(Map<String, dynamic> event) async {
+    if (uid == null) return;
+
     final docRef = await _db.collection('events').add({
       ...event,
       'createdBy': uid,

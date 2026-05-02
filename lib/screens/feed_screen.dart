@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'post_details_screen.dart';
 import 'create_post_screen.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -11,6 +12,7 @@ class FeedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text("Feed"), centerTitle: true),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -139,10 +141,14 @@ class FeedScreen extends StatelessWidget {
                         Row(
                           children: [
                             GestureDetector(
-                              onTap: () {
-                                FirestoreService().likePost(
+                              onTap: () async {
+                                final uid =
+                                    FirebaseAuth.instance.currentUser?.uid;
+                                if (uid == null) return;
+
+                                await FirestoreService().likePost(
                                   p['postId'],
-                                  FirestoreService().uid,
+                                  uid,
                                 );
                               },
                               child: Row(

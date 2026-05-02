@@ -8,6 +8,113 @@ import 'package:timeago/timeago.dart' as timeago;
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
+  // ------------------------------------------------------------
+  // REUSABLE CONVERSATION TILE (Unread Badge)
+  // ------------------------------------------------------------
+  Widget buildConversationTile({
+    required String name,
+    required String lastMessage,
+    required String timeAgo,
+    required int unreadCount,
+  }) {
+    final initials = name
+        .trim()
+        .split(" ")
+        .map((e) => e[0])
+        .take(2)
+        .join()
+        .toUpperCase();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          // Avatar
+          CircleAvatar(
+            radius: 24,
+            child: Text(
+              initials,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Name + message
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  lastMessage.isEmpty ? "No messages yet" : lastMessage,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: unreadCount > 0
+                        ? Colors.black
+                        : Colors.grey.shade600,
+                    fontWeight: unreadCount > 0
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Time + unread badge
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                timeAgo,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+
+              const SizedBox(height: 6),
+
+              if (unreadCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // MAIN UI
+  // ------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -33,6 +140,7 @@ class ChatListScreen extends StatelessWidget {
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.all(16),
             itemCount: conversations.length,
             itemBuilder: (context, i) {
               final convo = conversations[i];
@@ -45,14 +153,6 @@ class ChatListScreen extends StatelessWidget {
 
               final otherName = participants[otherUid] ?? "Unknown User";
 
-              final initials = otherName
-                  .trim()
-                  .split(" ")
-                  .map((e) => e[0])
-                  .take(2)
-                  .join()
-                  .toUpperCase();
-
               final lastMessage = convo['lastMessage'] ?? "";
 
               final Timestamp? ts = convo['lastTimestamp'];
@@ -61,38 +161,16 @@ class ChatListScreen extends StatelessWidget {
                   ? timeago.format(date)
                   : "Unknown time";
 
-              return ListTile(
-                leading: CircleAvatar(
-                  radius: 22,
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
+              final unreadCount = convo['unreadCount']?[uid] ?? 0;
 
-                title: Text(
-                  otherName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-
-                subtitle: Text(
-                  lastMessage.isEmpty ? "No messages yet" : lastMessage,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-                trailing: Text(
-                  timeAgo,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-
+              return InkWell(
                 onTap: () {
+                  // Reset unread count when opening chat
+                  FirebaseFirestore.instance
+                      .collection("conversations")
+                      .doc(convo['convoId'])
+                      .update({"unreadCount.$uid": 0});
+
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -104,6 +182,12 @@ class ChatListScreen extends StatelessWidget {
                     ),
                   );
                 },
+                child: buildConversationTile(
+                  name: otherName,
+                  lastMessage: lastMessage,
+                  timeAgo: timeAgo,
+                  unreadCount: unreadCount,
+                ),
               );
             },
           );
