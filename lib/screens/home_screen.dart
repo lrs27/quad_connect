@@ -154,45 +154,51 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // POSTS
     await db.collection('posts').doc('post_1').set({
-      'userName': 'Alex Johnson',
-      'content': 'Anyone down for a study group?',
+      'authorName': 'Alex Johnson',
+      'text': 'Anyone down for a study group?',
       'timestamp': FieldValue.serverTimestamp(),
-      'likes': 3,
+      'likesCount': 3,
+      'commentsCount': 0,
     });
 
     await db.collection('posts').doc('post_2').set({
-      'userName': 'Jordan Lee',
-      'content': 'Coding all night 💻',
+      'authorName': 'Jordan Lee',
+      'text': 'Coding all night 💻',
       'timestamp': FieldValue.serverTimestamp(),
-      'likes': 5,
+      'likesCount': 5,
+      'commentsCount': 0,
     });
 
     await db.collection('posts').doc('post_3').set({
-      'userName': 'Taylor Smith',
-      'content': 'Exam prep grind starts now',
+      'authorName': 'Taylor Smith',
+      'text': 'Exam prep grind starts now',
       'timestamp': FieldValue.serverTimestamp(),
-      'likes': 2,
+      'likesCount': 2,
+      'commentsCount': 0,
     });
 
     await db.collection('posts').doc('post_4').set({
-      'userName': 'Morgan Brown',
-      'content': 'Data structures finally clicking!',
+      'authorName': 'Morgan Brown',
+      'text': 'Data structures finally clicking!',
       'timestamp': FieldValue.serverTimestamp(),
-      'likes': 7,
+      'likesCount': 7,
+      'commentsCount': 0,
     });
 
     await db.collection('posts').doc('post_5').set({
-      'userName': 'Casey Wilson',
-      'content': 'First week on campus vibes 🔥',
+      'authorName': 'Casey Wilson',
+      'text': 'First week on campus vibes 🔥',
       'timestamp': FieldValue.serverTimestamp(),
-      'likes': 4,
+      'likesCount': 4,
+      'commentsCount': 0,
     });
 
     await db.collection('posts').doc('post_6').set({
-      'userName': 'Alex Johnson',
-      'content': 'Looking for hackathon teammates',
+      'authorName': 'Alex Johnson',
+      'text': 'Looking for hackathon teammates',
       'timestamp': FieldValue.serverTimestamp(),
-      'likes': 6,
+      'likesCount': 6,
+      'commentsCount': 0,
     });
 
     // EVENTS
