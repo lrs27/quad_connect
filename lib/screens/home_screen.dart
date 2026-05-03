@@ -86,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _seedData() async {
     final db = FirebaseFirestore.instance;
 
-    // x USERS START
+    // USERS
     await db.collection('users').doc('user_1').set({
       'name': 'Alex Johnson',
       'major': 'Computer Science',
@@ -94,6 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'courses': ['CSC3210', 'CSC4320'],
       'interests': ['AI', 'Gaming', 'Hackathons'],
       'availability': ['Mon 6-8', 'Wed 7-9'],
+      'bio': 'Love AI and hackathons!',
+      'photoUrl': '',
+      'fcmToken': '',
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -104,6 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'courses': ['CSC3210', 'BUS2200'],
       'interests': ['Startups', 'Study Groups'],
       'availability': ['Tue 5-7', 'Thu 6-8'],
+      'bio': 'Building the next big thing.',
+      'photoUrl': '',
+      'fcmToken': '',
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -114,6 +120,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'courses': ['CSC4320', 'CSC4350'],
       'interests': ['AI', 'Research', 'Coding'],
       'availability': ['Mon 8-10', 'Fri 3-5'],
+      'bio': 'Senior researcher and coder.',
+      'photoUrl': '',
+      'fcmToken': '',
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -124,6 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'courses': ['CSC3210', 'MATH2400'],
       'interests': ['Data', 'Fitness'],
       'availability': ['Wed 6-8', 'Sat 10-12'],
+      'bio': 'Data nerd who loves the gym.',
+      'photoUrl': '',
+      'fcmToken': '',
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -134,11 +146,13 @@ class _HomeScreenState extends State<HomeScreen> {
       'courses': ['CSC1301', 'ENG1100'],
       'interests': ['Music', 'Gaming'],
       'availability': ['Mon 4-6', 'Thu 7-9'],
+      'bio': 'Fresh on campus, ready to connect!',
+      'photoUrl': '',
+      'fcmToken': '',
       'createdAt': FieldValue.serverTimestamp(),
     });
-    // x USERS END
 
-    // x POSTS START
+    // POSTS
     await db.collection('posts').doc('post_1').set({
       'userName': 'Alex Johnson',
       'content': 'Anyone down for a study group?',
@@ -180,48 +194,61 @@ class _HomeScreenState extends State<HomeScreen> {
       'timestamp': FieldValue.serverTimestamp(),
       'likes': 6,
     });
-    // x POSTS END
 
-    // x EVENTS START
+    // EVENTS
     await db.collection('events').doc('event_1').set({
       'title': 'CS Study Night',
       'description': 'Group study for CSC3210',
-      'date': '2026-05-03',
+      'date': Timestamp.fromDate(DateTime(2026, 5, 3)),
+      'startTime': '18:00',
+      'endTime': '20:00',
       'location': 'Library Room 201',
+      'isPublic': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
     await db.collection('events').doc('event_2').set({
       'title': 'Campus Mixer',
       'description': 'Meet new students',
-      'date': '2026-05-05',
+      'date': Timestamp.fromDate(DateTime(2026, 5, 5)),
+      'startTime': '17:00',
+      'endTime': '19:00',
       'location': 'Student Center',
+      'isPublic': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
     await db.collection('events').doc('event_3').set({
       'title': 'Hackathon Kickoff',
       'description': 'Start building projects',
-      'date': '2026-05-07',
+      'date': Timestamp.fromDate(DateTime(2026, 5, 7)),
+      'startTime': '9:00',
+      'endTime': '17:00',
       'location': 'Engineering Hall',
+      'isPublic': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
     await db.collection('events').doc('event_4').set({
       'title': 'Career Workshop',
       'description': 'Resume + interview prep',
-      'date': '2026-05-09',
+      'date': Timestamp.fromDate(DateTime(2026, 5, 9)),
+      'startTime': '13:00',
+      'endTime': '15:00',
       'location': 'Business Building',
+      'isPublic': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
     await db.collection('events').doc('event_5').set({
       'title': 'Game Night',
       'description': 'Relax + games',
-      'date': '2026-05-10',
+      'date': Timestamp.fromDate(DateTime(2026, 5, 10)),
+      'startTime': '19:00',
+      'endTime': '21:00',
       'location': 'Dorm Lounge',
+      'isPublic': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
-    // x EVENTS END
   }
 }
