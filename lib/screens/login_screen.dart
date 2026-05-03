@@ -84,25 +84,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: loading
                     ? null
                     : () async {
-                        FocusScope.of(context).unfocus();
-                        await login();
+                  FocusScope.of(context).unfocus();
+                  await login();
 
-                        if (FirebaseAuth.instance.currentUser != null) {
-                          final uid = FirebaseAuth.instance.currentUser!.uid;
+                  if (FirebaseAuth.instance.currentUser != null) {
+                    final uid = FirebaseAuth.instance.currentUser!.uid;
 
-                          // Get FCM token
-                          final token = await FirebaseMessaging.instance
-                              .getToken();
+                    // Get FCM token
+                    final token = await FirebaseMessaging.instance
+                        .getToken();
 
-                          // Save token
-                          await FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(uid)
-                              .update({'fcmToken': token});
+                    // Save token
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .update({'fcmToken': token});
 
-                          Navigator.pushReplacementNamed(context, '/home');
-                        }
-                      },
+                    Navigator.pushReplacementNamed(context, '/home');
+                  }
+                },
 
                 child: loading
                     ? const CircularProgressIndicator(color: Colors.white)

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'profile_setup_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,43 +9,43 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final email = TextEditingController();
+  final password = TextEditingController();
 
-  bool _loading = false;
-  String? _error;
+  bool loading = false;
+  String? error;
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    email.dispose();
+    password.dispose();
     super.dispose();
   }
 
-  Future<void> _register() async {
+  Future<void> register() async {
     setState(() {
-      _loading = true;
-      _error = null;
+      loading = true;
+      error = null;
     });
 
     try {
       final user = await AuthService().register(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+        email.text.trim(),
+        password.text.trim(),
       );
 
-      if (user != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
-        );
+      if (user != null) {
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
-      setState(() => _error = "Registration failed. Please try again.");
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      setState(() {
+        error = e.toString(); // SHOW REAL ERROR
+      });
+      print(e);
+    }
+
+    if (mounted) {
+      setState(() => loading = false);
     }
   }
 
@@ -55,34 +54,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text("Register")),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_error != null)
+            if (error != null)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(error!, style: const TextStyle(color: Colors.red)),
               ),
 
             TextField(
-              controller: _emailController,
+              controller: email,
               decoration: const InputDecoration(labelText: "Email"),
             ),
 
             TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: "Password"),
+              controller: password,
               obscureText: true,
+              decoration: const InputDecoration(labelText: "Password"),
             ),
 
             const SizedBox(height: 20),
 
             ElevatedButton(
-              onPressed: _loading ? null : _register,
-              child: _loading
+              onPressed: loading
+                  ? null
+                  : () async {
+                      FocusScope.of(context).unfocus();
+                      await register();
+                    },
+              child: loading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Next"),
+                  : const Text("Register"),
             ),
           ],
         ),
